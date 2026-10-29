@@ -18,4 +18,10 @@ if __name__ == "__main__":
         port=PORT,
         url_path=TOKEN,
         webhook_url=f"{URL}/{TOKEN}"
+        from flask import Flask
+app = Flask(__name__)
+
+@app.route("/")
+def health_check():
+    return "OK", 200
     )
