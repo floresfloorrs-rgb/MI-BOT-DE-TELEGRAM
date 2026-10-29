@@ -1,47 +1,31 @@
 import os
-import asyncio
-import logging
-from flask import Flask, request, Response
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+import threading
+from flask import Flask
+# ... tus imports del bot (telegram, etc.)
 
-# Configuración de logs para ver la actividad en Render
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+# ====== TU CÓDIGO DEL BOT EXISTENTE VA AQUÍ ARRIBA ======
+# (no lo toques, déjalo como estaba)
 
-TOKEN = os.environ.get("BOT_TOKEN")
-URL = os.environ.get("RENDER_EXTERNAL_URL")
-PORT = int(os.environ.get("PORT", 10000))
 
-# 1. Creamos la aplicación de Flask para el chequeo de salud
+# ====== SERVIDOR WEB PARA UPTIMEROBOT ======
 app = Flask(__name__)
 
-@app.route("/")
-def health_check():
-    return "OK", 200
+@app.route('/')
+def home():
+    return "Bot activo", 200
 
-# 2. Creamos la aplicación del bot de Telegram
-telegram_app = ApplicationBuilder().token(TOKEN).build()
+def run_web():
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("¡Hola! Ya estoy funcionando 24/7.")
-
-telegram_app.add_handler(CommandHandler("start", start))
-
-# 3. Ruta que recibirá los mensajes de Telegram (Webhook)
-@app.route(f"/{TOKEN}", methods=["POST"])
-def webhook():
-    update = Update.de_json(request.get_json(force=True), telegram_app.bot)
-    asyncio.run(telegram_app.process_update(update))
-    return Response("OK", status=200)
-
-# 4. Función principal que inicia todo
-async def main():
-    # Configuramos el webhook de Telegram
-    await telegram_app.bot.set_webhook(url=f"{URL}/{TOKEN}")
-    print("Webhook configurado correctamente.")
-    
-    # Iniciamos Flask
-    app.run(host="0.0.0.0", port=PORT)
-
+# ====== INICIAR AMBOS ======
 if __name__ == "__main__":
-    asyncio.run(main())
+    # Iniciar servidor web en un hilo aparte
+    threading.Thread(target=run_web, daemon=True).start()
+    
+    # Iniciar tu bot (polling) - esto depende de tu librería
+    # Ejemplo con python-telegram-bot v20+:
+    # application.run_polling()
+    
+    # Ejemplo con pyTelegramBotAPI:
+    # bot.infinity_polling()
