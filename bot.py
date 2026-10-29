@@ -1,1 +1,23 @@
-import os import logging from flask import Flask, request from telegram import Update from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes # Configuración de logs para ver qué pasa logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO) TOKEN = os.environ.get("BOT_TOKEN") # Render nos da la URL de nuestro servicio en esta variable RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL") app = Flask(__name__) # Creamos la aplicación de Telegram application = ApplicationBuilder().token(TOKEN).build() # Comando /start async def start(update: Update, context: ContextTypes.DEFAULT_TYPE): await update.message.reply_text("¡Hola! Soy tu bot con Webhooks.") application.add_handler(CommandHandler("start", start)) # Ruta que usará Telegram para enviar los mensajes @app.route(f"/{TOKEN}", methods=["POST"]) def webhook(): update = Update.de_json(request.get_json(force=True), appli
+import os
+import logging
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+
+# Configuramos los logs
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+
+TOKEN = os.environ.get("BOT_TOKEN")
+PORT = int(os.environ.get("PORT", 8080))
+RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL")
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("¡Hola! Soy tu bot funcionando con Webhooks.")
+
+if __name__ == "__main__":
+    application = ApplicationBuilder().token(TOKEN).build()
+    application.add_handler(CommandHandler("start", start))
+    
+    # Iniciar en modo webhook
+    application.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
