@@ -30,40 +30,23 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 telegram_app.add_handler(CommandHandler("start", start))
 
-
 # 3. Webhook: recibe los mensajes de Telegram
 @app.route(f"/{TOKEN}", methods=["POST"])
 def webhook():
     data = request.get_json(force=True)
     update = Update.de_json(data, telegram_app.bot)
-
-    # Procesamos el update dentro del loop de la app
-    asyncio.run_coroutine_threadsafe(
-        telegram_app.process_update(update),
-        telegram_app._loop
-    )
+    
+    # Procesamos el update de forma segura
+    asyncio.run(telegram_app.process_update(update))
     return Response("OK", status=200)
 
-
-# 4. Inicializar la app del bot y configurar webhook (UNA sola vez al arrancar)
-async def setup_bot():
-    await telegram_app.initialize()
-    await telegram_app.bot.set_webhook(url=f"{URL}/{TOKEN}")
-    print("✅ Webhook configurado en:", f"{URL}/{TOKEN}")
-    # Creamos un loop persistente para procesar updates
-    telegram_app._loop = asyncio.get_running_loop()
-    # Dejamos la app corriendo indefinidamente
-    await asyncio.Event().wait()
-
-
-def run_bot():
-    asyncio.run(setup_bot())
-
-
+# 4. Arrancar todo
 if __name__ == "__main__":
-    # Arrancamos el bot en un hilo de fondo
-    import threading
-    threading.Thread(target=run_bot, daemon=True).start()
-
-    # Flask corre en el hilo principal (Render lo necesita así)
+    # Configuramos el webhook con Telegram antes de arrancar Flask
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(telegram_app.bot.set_webhook(url=f"{URL}/{TOKEN}"))
+    print("✅ Webhook configurado correctamente.")
+    
+    # Arrancamos Flask (Render necesita que corra en el hilo principal)
     app.run(host="0.0.0.0", port=PORT)
