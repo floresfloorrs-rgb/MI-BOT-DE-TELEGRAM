@@ -1,9 +1,10 @@
 import os
 import asyncio
 import logging
-from flask import Flask, request, Response
-from telegram import Update
+import threading
+from flask import Flask
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram import Update
 
 # Configuración de logs
 logging.basicConfig(
@@ -12,48 +13,40 @@ logging.basicConfig(
 )
 
 TOKEN = os.environ.get("BOT_TOKEN")
-URL = os.environ.get("RENDER_EXTERNAL_URL")
 PORT = int(os.environ.get("PORT", 10000))
 
-# 1. Flask
+# 1. Flask para que UptimeRobot y Render vean que estamos vivos
 app = Flask(__name__)
 
 @app.route("/")
 def health_check():
     return "OK", 200
 
-# 2. App del Bot
-telegram_app = ApplicationBuilder().token(TOKEN).build()
+def run_flask():
+    # Render asigna el puerto en la variable PORT
+    app.run(host="0.0.0.0", port=PORT)
 
+# 2. Configuración del Bot
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("¡Hola! Ya estoy funcionando 24/7.")
 
-telegram_app.add_handler(CommandHandler("start", start))
-
-# 3. Ruta del Webhook
-@app.route(f"/{TOKEN}", methods=["POST"])
-def webhook():
-    data = request.get_json(force=True)
-    update = Update.de_json(data, telegram_app.bot)
+def run_bot():
+    # Creamos un loop nuevo para este hilo
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     
-    # Ejecutamos esto en el loop que creamos abajo (SIN asyncio.run)
-    asyncio.run_coroutine_threadsafe(
-        telegram_app.process_update(update),
-        background_loop
-    )
-    return Response("OK", status=200)
+    # Construimos la app
+    application = ApplicationBuilder().token(TOKEN).build()
+    application.add_handler(CommandHandler("start", start))
+    
+    print("🤖 Bot iniciado y escuchando mensajes...")
+    # Esto se queda escuchando a Telegram (Polling)
+    application.run_polling()
 
-# 4. Arrancar
+# 3. Arrancar todo
 if __name__ == "__main__":
-    # Creamos un loop global que corra siempre en segundo plano
-    background_loop = asyncio.new_event_loop()
+    # Arrancamos Flask en un hilo secundario (para que no bloquee el bot)
+    threading.Thread(target=run_flask, daemon=True).start()
     
-    async def setup():
-        await telegram_app.initialize()
-        await telegram_app.bot.set_webhook(url=f"{URL}/{TOKEN}")
-        print("✅ Webhook configurado correctamente.")
-
-    background_loop.run_until_complete(setup())
-    
-    # Encendemos Flask
-    app.run(host="0.0.0.0", port=PORT)
+    # Arrancamos el bot en el hilo principal
+    run_bot()
