@@ -1,4 +1,4 @@
-import os
+mport os
 
 import asyncio
 
@@ -58,8 +58,6 @@ def obtener_configuracion_bots():
             links_str = os.environ.get(f"CHAT_LINKS_{num}", "")
 
 
-            # Parsear los pares chat_id|mensaje separados por ;;
-
             chat_links = {}
 
             if links_str.strip():
@@ -106,8 +104,6 @@ def health_check():
 
 def run_flask():
 
-    # Render asigna el puerto automáticamente
-
     app.run(host="0.0.0.0", port=PORT)
 
 # ------------------------------
@@ -122,7 +118,7 @@ async def enviar_y_borrar_mensaje(context: ContextTypes.DEFAULT_TYPE):
 
     bot_id = context.bot_data["bot_id"]
 
-    chat_links = context.bot_data["chat_links"]          # dict: {chat_id: mensaje}
+    chat_links = context.bot_data["chat_links"]
 
     ultimos_mensajes = context.bot_data["ultimos_mensajes"]
 
@@ -131,8 +127,6 @@ async def enviar_y_borrar_mensaje(context: ContextTypes.DEFAULT_TYPE):
 
 
     for chat_id, mensaje_texto in chat_links.items():
-
-        # 1. Borrar el mensaje anterior de ese grupo (si existe)
 
         if chat_id in ultimos_mensajes:
 
@@ -150,15 +144,11 @@ async def enviar_y_borrar_mensaje(context: ContextTypes.DEFAULT_TYPE):
 
             except Exception:
 
-                pass  # Si ya no existe o no se puede borrar, ignoramos
+                pass
 
-
-        # 2. Espera aleatoria de 2 a 10 segundos (para no ser robótico)
 
         await asyncio.sleep(random.uniform(2.0, 10.0))
 
-
-        # 3. Simular que está escribiendo
 
         try:
 
@@ -171,8 +161,6 @@ async def enviar_y_borrar_mensaje(context: ContextTypes.DEFAULT_TYPE):
             pass
 
 
-        # 4. Enviar el mensaje/link ÚNICO de ese grupo
-
         try:
 
             mensaje = await context.bot.send_message(
@@ -181,7 +169,7 @@ async def enviar_y_borrar_mensaje(context: ContextTypes.DEFAULT_TYPE):
 
                 text=mensaje_texto,
 
-                disable_web_page_preview=False  # True si no quieres vista previa del link
+                disable_web_page_preview=False
 
             )
 
@@ -194,15 +182,10 @@ async def enviar_y_borrar_mensaje(context: ContextTypes.DEFAULT_TYPE):
             logging.error(f"[Bot {bot_id}] Error al enviar a {chat_id}: {e}")
 
 
-        # 5. Pausa entre grupos (10 a 20 segundos)
-
         await asyncio.sleep(random.uniform(10.0, 20.0))
 
 
     logging.info(f"[Bot {bot_id}] Ronda finalizada. Reprogramando...")
-
-
-    # 6. Próxima ronda en un tiempo variable entre 10 y 11 minutos
 
     siguiente_ronda = random.uniform(600, 660)
 
@@ -211,10 +194,6 @@ async def enviar_y_borrar_mensaje(context: ContextTypes.DEFAULT_TYPE):
 
 
 def iniciar_bot(config):
-
-    # 🔥 SOLUCIÓN AL ERROR DE EVENT LOOP:
-
-    # Creamos un nuevo bucle de eventos para este hilo específico y lo asignamos.
 
     loop = asyncio.new_event_loop()
 
@@ -251,8 +230,6 @@ def iniciar_bot(config):
     application.add_error_handler(error_handler)
 
 
-    # Primera ejecución a los 10 segundos de arrancar
-
     application.job_queue.run_once(enviar_y_borrar_mensaje, 10)
 
 
@@ -260,9 +237,9 @@ def iniciar_bot(config):
 
     
 
-    # Iniciar el bot (ahora sí encontrará el event loop)
+    # 🔥 AQUÍ ESTÁ LA CORRECCIÓN:
 
-    application.run_polling(drop_pending_updates=True)
+    application.run_polling(drop_pending_updates=True, stop_signals=None)
 
 
 
@@ -281,8 +258,6 @@ if __name__ == "__main__":
 
         
 
-        # Iniciar Flask en un hilo separado para mantener vivo el servicio en Render
-
         threading.Thread(target=run_flask, daemon=True).start()
 
 
@@ -296,8 +271,6 @@ if __name__ == "__main__":
 
             hilos_bots.append(hilo)
 
-
-        # Mantener el programa principal vivo esperando a los hilos
 
         for hilo in hilos_bots:
 
