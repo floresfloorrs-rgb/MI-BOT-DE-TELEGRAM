@@ -17,6 +17,8 @@ from telegram import Update
 import telegram
 
 
+# Configuración de logs
+
 logging.basicConfig(
 
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -90,6 +92,8 @@ def obtener_configuracion_bots():
     return bots
 
 
+# --- FLASK PARA UPTIMEROBOT ---
+
 app = Flask(__name__)
 
 
@@ -102,7 +106,11 @@ def health_check():
 
 def run_flask():
 
+    # Render asigna el puerto automáticamente
+
     app.run(host="0.0.0.0", port=PORT)
+
+# ------------------------------
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -201,7 +209,17 @@ async def enviar_y_borrar_mensaje(context: ContextTypes.DEFAULT_TYPE):
     context.job_queue.run_once(enviar_y_borrar_mensaje, siguiente_ronda)
 
 
+
 def iniciar_bot(config):
+
+    # 🔥 SOLUCIÓN AL ERROR DE EVENT LOOP:
+
+    # Creamos un nuevo bucle de eventos para este hilo específico y lo asignamos.
+
+    loop = asyncio.new_event_loop()
+
+    asyncio.set_event_loop(loop)
+
 
     token = config["token"]
 
@@ -240,7 +258,12 @@ def iniciar_bot(config):
 
     print(f"🤖 Bot {bot_id} iniciado con {len(chat_links)} grupos asignados.")
 
+    
+
+    # Iniciar el bot (ahora sí encontrará el event loop)
+
     application.run_polling(drop_pending_updates=True)
+
 
 
 if __name__ == "__main__":
@@ -250,11 +273,15 @@ if __name__ == "__main__":
 
     if not lista_bots:
 
-        print("ERROR: No se encontraron variables BOT_TOKEN_X y CHAT_LINKS_X válidas.")
+        print("❌ ERROR: No se encontraron variables BOT_TOKEN_X y CHAT_LINKS_X válidas.")
 
     else:
 
         print(f"🚀 Iniciando {len(lista_bots)} bots en paralelo...")
+
+        
+
+        # Iniciar Flask en un hilo separado para mantener vivo el servicio en Render
 
         threading.Thread(target=run_flask, daemon=True).start()
 
@@ -270,7 +297,8 @@ if __name__ == "__main__":
             hilos_bots.append(hilo)
 
 
+        # Mantener el programa principal vivo esperando a los hilos
+
         for hilo in hilos_bots:
 
             hilo.join()
-        
