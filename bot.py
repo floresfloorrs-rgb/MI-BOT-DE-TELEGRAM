@@ -29,19 +29,24 @@ logging.basicConfig(
 PORT = int(os.environ.get("PORT", 10000))
 
 
+# Lista de mensajes con emojis al inicio y al final
+
+MENSAJES_VARIADOS = [
+
+    "📢 📌 Mensaje de prueba 📌 📢",
+
+    "👋 ℹ️ ¡Hola a todos! Mensaje de prueba ℹ️ 👋",
+
+    "📝 ✅ Aviso: mensaje de prueba ✅ 📝",
+
+    "⏰ 🔄 Recordatorio: mensaje de prueba 🔄 ⏰",
+
+    "📅 📢 Mensaje de prueba (actualizado) 📢 📅"
+
+]
+
+
 def obtener_configuracion_bots():
-
-    """
-
-    Lee variables de entorno con formato:
-
-      BOT_TOKEN_X  = token del bot
-
-      CHAT_LINKS_X = id1|mensaje1;;id2|mensaje2;;...
-
-    Devuelve una lista de diccionarios con token, id y un dict {chat_id: mensaje}.
-
-    """
 
     bots = []
 
@@ -53,39 +58,15 @@ def obtener_configuracion_bots():
 
             token = os.environ.get(f"BOT_TOKEN_{num}")
 
-            links_str = os.environ.get(f"CHAT_LINKS_{num}", "")
+            chat_ids_str = os.environ.get(f"CHAT_IDS_{num}", "")
 
+            chat_ids = [c.strip() for c in chat_ids_str.split(",") if c.strip()]
 
-            # Parsear los pares chat_id|mensaje separados por ;;
+            
 
-            chat_links = {}
+            if token and chat_ids:
 
-            if links_str.strip():
-
-                pares = links_str.split(";;")
-
-                for par in pares:
-
-                    par = par.strip()
-
-                    if not par:
-
-                        continue
-
-                    if "|" in par:
-
-                        chat_id, mensaje = par.split("|", 1)
-
-                        chat_links[chat_id.strip()] = mensaje.strip()
-
-                    else:
-
-                        logging.warning(f"[Bot {num}] Par mal formado (falta |): {par}")
-
-
-            if token and chat_links:
-
-                bots.append({"token": token, "chat_links": chat_links, "id": num})
+                bots.append({"token": token, "chat_ids": chat_ids, "id": num})
 
     return bots
 
@@ -114,43 +95,42 @@ async def enviar_y_borrar_mensaje(context: ContextTypes.DEFAULT_TYPE):
 
     bot_id = context.bot_data["bot_id"]
 
-    chat_links = context.bot_data["chat_links"]          # dict: {chat_id: mensaje}
+    chat_ids = context.bot_data["chat_ids"]
 
     ultimos_mensajes = context.bot_data["ultimos_mensajes"]
 
+    
 
-    logging.info(f"[Bot {bot_id}] Iniciando ronda para {len(chat_links)} grupos...")
+    logging.info(f"[Bot {bot_id}] Iniciando ronda para {len(chat_ids)} grupos...")
 
 
-    for chat_id, mensaje_texto in chat_links.items():
+    for chat_id in chat_ids:
 
-        # 1. Borrar el mensaje anterior de ese grupo (si existe)
+        # 1. Borrar mensaje anterior
 
         if chat_id in ultimos_mensajes:
 
             try:
 
-                await context.bot.delete_message(
+                await context.bot.delete_message(chat_id=chat_id, message_id=ultimos_mensajes[chat_id])
 
-                    chat_id=chat_id,
-
-                    message_id=ultimos_mensajes[chat_id]
-
-                )
-
-                logging.info(f"[Bot {bot_id}] Mensaje anterior borrado en {chat_id}.")
+                logging.info(f"[Bot {bot_id}] Mensaje borrado en {chat_id}.")
 
             except Exception:
 
-                pass  # Si ya no existe o no se puede borrar, ignoramos
+                pass
 
+        
 
-        # 2. Espera aleatoria de 2 a 10 segundos (para no ser robótico)
+        # 2. Espera aleatoria de 2 a 10 segundos
 
-        await asyncio.sleep(random.uniform(2.0, 10.0))
+        espera_borrado = random.uniform(2.0, 10.0)
 
+        await asyncio.sleep(espera_borrado)
 
-        # 3. Simular que está escribiendo
+        
+
+        # 3. Simular escritura (Typing)
 
         try:
 
@@ -160,43 +140,41 @@ async def enviar_y_borrar_mensaje(context: ContextTypes.DEFAULT_TYPE):
 
         except Exception:
 
-            pass
+             pass
 
 
-        # 4. Enviar el mensaje/link ÚNICO de ese grupo
+        # 4. Enviar el nuevo mensaje
 
         try:
 
-            mensaje = await context.bot.send_message(
+            texto = random.choice(MENSAJES_VARIADOS)
 
-                chat_id=chat_id,
-
-                text=mensaje_texto,
-
-                disable_web_page_preview=False  # True si no quieres vista previa del link
-
-            )
+            mensaje = await context.bot.send_message(chat_id=chat_id, text=texto)
 
             ultimos_mensajes[chat_id] = mensaje.message_id
 
-            logging.info(f"[Bot {bot_id}] Link enviado a {chat_id}.")
+            logging.info(f"[Bot {bot_id}] Mensaje enviado a {chat_id}.")
 
         except Exception as e:
 
             logging.error(f"[Bot {bot_id}] Error al enviar a {chat_id}: {e}")
 
+        
 
         # 5. Pausa entre grupos (10 a 20 segundos)
 
-        await asyncio.sleep(random.uniform(10.0, 20.0))
+        espera_siguiente = random.uniform(10.0, 20.0)
+
+        await asyncio.sleep(espera_siguiente)
 
 
-    logging.info(f"[Bot {bot_id}] Ronda finalizada. Reprogramando...")
+    logging.info(f"[Bot {bot_id}] Ronda finalizada. Esperando para la siguiente...")
 
+    
 
-    # 6. Próxima ronda en un tiempo variable entre 10 y 11 minutos
+    # 6. Reprogramar la siguiente ronda variando el tiempo (10 a 11 minutos)
 
-    siguiente_ronda = random.uniform(600, 660)
+    siguiente_ronda = random.uniform(600, 660) 
 
     context.job_queue.run_once(enviar_y_borrar_mensaje, siguiente_ronda)
 
@@ -207,21 +185,33 @@ def iniciar_bot(config):
 
     bot_id = config["id"]
 
-    chat_links = config["chat_links"]
+    chat_ids = config["chat_ids"]
 
+    
+
+    # NUEVO: Crear un nuevo event loop para este hilo específico (Soluciona el error de Render)
+
+    loop = asyncio.new_event_loop()
+
+    asyncio.set_event_loop(loop)
+
+    
 
     application = ApplicationBuilder().token(token).build()
 
+    
 
     application.bot_data["bot_id"] = bot_id
 
-    application.bot_data["chat_links"] = chat_links
+    application.bot_data["chat_ids"] = chat_ids
 
     application.bot_data["ultimos_mensajes"] = {}
 
+    
 
     application.add_handler(CommandHandler("start", start))
 
+    
 
     async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
 
@@ -232,13 +222,19 @@ def iniciar_bot(config):
 
     application.add_error_handler(error_handler)
 
+    
 
     # Primera ejecución a los 10 segundos de arrancar
 
     application.job_queue.run_once(enviar_y_borrar_mensaje, 10)
 
+    
 
-    print(f"🤖 Bot {bot_id} iniciado con {len(chat_links)} grupos asignados.")
+    print(f"🤖 Bot {bot_id} iniciado con {len(chat_ids)} grupos asignados.")
+
+    
+
+    # Arrancamos el bot
 
     application.run_polling(drop_pending_updates=True)
 
@@ -247,10 +243,11 @@ if __name__ == "__main__":
 
     lista_bots = obtener_configuracion_bots()
 
+    
 
     if not lista_bots:
 
-        print("ERROR: No se encontraron variables BOT_TOKEN_X y CHAT_LINKS_X válidas.")
+        print("ERROR: No se encontraron variables BOT_TOKEN_X y CHAT_IDS_X en el entorno.")
 
     else:
 
@@ -258,6 +255,7 @@ if __name__ == "__main__":
 
         threading.Thread(target=run_flask, daemon=True).start()
 
+        
 
         hilos_bots = []
 
@@ -269,6 +267,7 @@ if __name__ == "__main__":
 
             hilos_bots.append(hilo)
 
+        
 
         for hilo in hilos_bots:
 
