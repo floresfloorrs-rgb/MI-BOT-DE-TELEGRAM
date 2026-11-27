@@ -71,7 +71,7 @@ def run_flask():
     app.run(host="0.0.0.0", port=PORT)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("¡Hola! Ya estoy funcionando 24/7.")
+    await update.message.reply_text("... ")
 
 # --- NUEVO COMANDO DE PRUEBA ---
 async def test_borrar(update: Update, context: ContextTypes.DEFAULT_TYPE):
